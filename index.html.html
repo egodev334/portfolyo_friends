@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aphera | Sanat Portfolyosu</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700&display=swap');
+
+        body {
+            background: radial-gradient(circle at center, #2e1065 0%, #0f172a 100%);
+            color: #f8fafc;
+            font-family: 'Space Grotesk', sans-serif;
+            margin: 0;
+            overflow-x: hidden;
+            cursor: default;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        /* Uzay Arka Planı */
+        .stars {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                radial-gradient(1px 1px at 20px 30px, #fff, rgba(0,0,0,0)),
+                radial-gradient(1px 1px at 40px 70px, #fff, rgba(0,0,0,0)),
+                radial-gradient(2px 2px at 50px 160px, #ddd, rgba(0,0,0,0)),
+                radial-gradient(2px 2px at 90px 40px, #fff, rgba(0,0,0,0));
+            background-size: 200px 200px;
+            opacity: 0.3;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        .hero-text {
+            font-size: clamp(4rem, 15vw, 10rem);
+            font-weight: 700;
+            background: linear-gradient(to right, #a78bfa, #f472b6, #818cf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-transform: uppercase;
+            letter-spacing: 0.8rem;
+            filter: drop-shadow(0 0 30px rgba(167, 139, 250, 0.5));
+            animation: floating 4s ease-in-out infinite;
+        }
+
+        @keyframes floating {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+
+        .glass {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 1.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .glass:hover {
+            border-color: rgba(167, 139, 250, 0.4);
+            box-shadow: 0 0 20px rgba(167, 139, 250, 0.1);
+        }
+
+        /* Çizim Katmanı */
+        #drawing-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* Normalde kapalı */
+            z-index: 100; /* Her şeyin üstünde */
+        }
+
+        #drawing-canvas.active {
+            pointer-events: all; /* Çizim modunda açılır */
+        }
+
+        /* Mouse Takip Eden Kalem */
+        #pencil-cursor {
+            position: fixed;
+            width: 40px;
+            height: 40px;
+            pointer-events: none;
+            z-index: 9999;
+            display: none;
+            color: #ec4899;
+            filter: drop-shadow(0 0 15px currentColor);
+            transition: transform 0.1s ease;
+        }
+
+        .modal {
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            visibility: hidden;
+            opacity: 0;
+            transform: scale(0.95);
+            z-index: 1000;
+        }
+        .modal.open {
+            visibility: visible;
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .pano-card {
+            aspect-ratio: 4/5;
+            overflow: hidden;
+            position: relative;
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .fandom-icon {
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            color: rgba(255, 255, 255, 0.6);
+        }
+        .fandom-icon:hover {
+            transform: scale(1.3) rotate(5deg);
+            color: #f472b6;
+        }
+
+        #toggle-draw.active {
+            background: #ec4899;
+            box-shadow: 0 0 20px #ec4899;
+            color: white;
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+
+    <div class="stars"></div>
+    
+    <!-- Çizim Katmanı -->
+    <canvas id="drawing-canvas"></canvas>
+    
+    <!-- Mouse Kalem İkonu -->
+    <div id="pencil-cursor">
+        <i class="fa-solid fa-wand-sparkles text-3xl"></i>
+    </div>
+
+    <!-- Yan Araç Çubuğu -->
+    <div class="fixed right-6 top-1/2 -translate-y-1/2 z-[200] flex flex-col gap-4">
+        <button id="toggle-draw" title="Çizim Modunu Aç" class="w-14 h-14 glass flex items-center justify-center hover:scale-110 transition-all group">
+            <i class="fa-solid fa-paint-brush text-xl group-hover:rotate-12 transition-transform"></i>
+        </button>
+        <div id="color-palette" class="hidden flex flex-col gap-3 p-3 glass">
+            <div class="w-8 h-8 rounded-full bg-pink-500 cursor-pointer hover:scale-110 transition-transform shadow-[0_0_10px_#ec4899]" onclick="setColor('#ec4899')"></div>
+            <div class="w-8 h-8 rounded-full bg-cyan-400 cursor-pointer hover:scale-110 transition-transform shadow-[0_0_10px_#22d3ee]" onclick="setColor('#22d3ee')"></div>
+            <div class="w-8 h-8 rounded-full bg-indigo-500 cursor-pointer hover:scale-110 transition-transform shadow-[0_0_10px_#6366f1]" onclick="setColor('#6366f1')"></div>
+            <div class="w-8 h-8 rounded-full bg-yellow-300 cursor-pointer hover:scale-110 transition-transform shadow-[0_0_10px_#fde047]" onclick="setColor('#fde047')"></div>
+            <hr class="border-white/10 my-1">
+            <button onclick="clearCanvas()" title="Temizle" class="hover:text-red-400 transition-colors text-lg">
+                <i class="fa-solid fa-trash-can"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Ana İçerik -->
+    <main class="container mx-auto px-6 py-12 relative z-10">
+        
+        <section id="hero" class="h-screen flex flex-col items-center justify-center text-center">
+            <h1 class="hero-text mb-2">APHERA</h1>
+            <p class="text-pink-300 text-lg tracking-[0.5em] font-light opacity-80 uppercase">İllüstratör</p>
+            <div class="mt-20 glass p-4 px-8 text-xs opacity-60 flex items-center gap-3">
+                <i class="fa-solid fa-hand-pointer text-pink-400"></i> 
+                <span>Çizim modunda <b>SAĞ TIKLA</b> boyamaya başla!</span>
+            </div>
+        </section>
+
+        <div class="flex flex-wrap justify-center gap-6 mb-32">
+            <button onclick="openModal('about-modal')" class="px-10 py-4 glass hover:bg-white/10 transition-all font-bold tracking-widest uppercase text-sm">
+                Hakkımda
+            </button>
+            <a href="#pano" class="px-10 py-4 glass hover:bg-white/10 transition-all font-bold tracking-widest uppercase text-sm">
+                Pano
+            </a>
+            <a href="#interests" class="px-10 py-4 glass hover:bg-white/10 transition-all font-bold tracking-widest uppercase text-sm">
+                Interests
+            </a>
+        </div>
+
+        <section id="pano" class="py-20">
+            <div class="flex items-center justify-center gap-4 mb-16">
+                <div class="h-[1px] w-20 bg-gradient-to-r from-transparent to-pink-500"></div>
+                <h2 class="text-5xl font-bold tracking-tighter text-white">PANO</h2>
+                <div class="h-[1px] w-20 bg-gradient-to-l from-transparent to-pink-500"></div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <div class="glass pano-card flex items-center justify-center group">
+                    <span class="opacity-20 group-hover:opacity-100 transition-opacity uppercase text-[10px] tracking-widest italic">Uzay Eskizi 01</span>
+                </div>
+                <div class="glass pano-card flex items-center justify-center group">
+                    <span class="opacity-20 group-hover:opacity-100 transition-opacity uppercase text-[10px] tracking-widest italic">Yıldız Tozu 02</span>
+                </div>
+                <div class="glass pano-card flex items-center justify-center group">
+                    <span class="opacity-20 group-hover:opacity-100 transition-opacity uppercase text-[10px] tracking-widest italic">Nebula Rüyası 03</span>
+                </div>
+            </div>
+        </section>
+
+        <section id="interests" class="py-32 text-center">
+            <h2 class="text-2xl font-bold mb-12 opacity-50 tracking-[0.3em]">FANDOM CONNECT</h2>
+            <div class="flex justify-center flex-wrap gap-12 text-6xl">
+                <a href="#" class="fandom-icon"><i class="fa-brands fa-deviantart"></i></a>
+                <a href="#" class="fandom-icon"><i class="fa-brands fa-pinterest"></i></a>
+                <a href="#" class="fandom-icon"><i class="fa-brands fa-tumblr"></i></a>
+                <a href="#" class="fandom-icon"><i class="fa-brands fa-discord"></i></a>
+                <a href="#" class="fandom-icon"><i class="fa-brands fa-instagram"></i></a>
+            </div>
+        </section>
+    </main>
+
+    <!-- Modal -->
+    <div id="about-modal" class="modal fixed inset-0 flex items-center justify-center px-4">
+        <div class="absolute inset-0 bg-black/80 backdrop-blur-xl" onclick="closeModal('about-modal')"></div>
+        <div class="glass max-w-2xl w-full p-12 relative z-10 border-pink-500/20 shadow-[0_0_50px_rgba(236,72,153,0.15)]">
+            <button onclick="closeModal('about-modal')" class="absolute top-6 right-8 text-2xl hover:text-pink-400 transition-colors">
+                <i class="fa-solid fa-circle-xmark"></i>
+            </button>
+            <h3 class="text-4xl font-bold mb-8 bg-gradient-to-r from-pink-400 to-indigo-400 bg-clip-text text-transparent italic">Aphera'nın Dünyası</h3>
+            <div class="space-y-6 text-indigo-100/80 leading-relaxed text-lg">
+                <p>Buraya kendi çizim hikayelerini ve projelerini ekleyebilirsin.</p>
+                <div class="grid grid-cols-2 gap-8 py-8 border-y border-white/5">
+                    <div>
+                        <h4 class="text-pink-400 text-sm font-bold uppercase mb-2">Uzmanlık</h4>
+                        <p class="text-white">Konsept Tasarımı</p>
+                    </div>
+                    <div>
+                        <h4 class="text-pink-400 text-sm font-bold uppercase mb-2">Evrenler</h4>
+                        <p class="text-white">Cyberpunk & Fantasy</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Modal Kontrolleri
+        function openModal(id) {
+            document.getElementById(id).classList.add('open');
+            document.body.style.overflow = 'hidden';
+        }
+        function closeModal(id) {
+            document.getElementById(id).classList.remove('open');
+            document.body.style.overflow = 'auto';
+        }
+
+        const canvas = document.getElementById('drawing-canvas');
+        const ctx = canvas.getContext('2d');
+        const toggleBtn = document.getElementById('toggle-draw');
+        const palette = document.getElementById('color-palette');
+        const pencil = document.getElementById('pencil-cursor');
+        
+        let isDrawingMode = false;
+        let isDrawing = false;
+        let currentColor = '#ec4899';
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            // Canvas temizlenmesin diye ayarları koru
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        toggleBtn.addEventListener('click', () => {
+            isDrawingMode = !isDrawingMode;
+            canvas.classList.toggle('active', isDrawingMode);
+            palette.classList.toggle('hidden', !isDrawingMode);
+            pencil.style.display = isDrawingMode ? 'block' : 'none';
+            toggleBtn.classList.toggle('active', isDrawingMode);
+        });
+
+        // Mouse Takibi
+        window.addEventListener('mousemove', (e) => {
+            if(isDrawingMode) {
+                pencil.style.left = (e.clientX - 10) + 'px';
+                pencil.style.top = (e.clientY - 30) + 'px';
+                
+                if (isDrawing) {
+                    draw(e);
+                }
+            }
+        });
+
+        // Sağ Tık Menüsünü Engelleme (Kritik!)
+        window.addEventListener('contextmenu', (e) => {
+            if (isDrawingMode) {
+                e.preventDefault();
+                return false;
+            }
+        });
+
+        // Mouse Down (Sadece Sağ Tık İçin)
+        window.addEventListener('mousedown', (e) => {
+            if (!isDrawingMode) return;
+            
+            // e.button === 2 SAĞ TIKTIR
+            if (e.button === 2) {
+                isDrawing = true;
+                
+                // Rastgele bir renk seçimi (dinamik his için)
+                const colors = ['#ec4899', '#22d3ee', '#6366f1', '#fde047', '#a78bfa'];
+                currentColor = colors[Math.floor(Math.random() * colors.length)];
+                pencil.style.color = currentColor;
+
+                ctx.beginPath();
+                ctx.moveTo(e.clientX, e.clientY);
+                e.preventDefault();
+            }
+        });
+
+        // Mouse Up
+        window.addEventListener('mouseup', (e) => {
+            if (e.button === 2) {
+                isDrawing = false;
+                ctx.closePath();
+            }
+        });
+
+        // Çizim Fonksiyonu
+        function draw(e) {
+            if (!isDrawing) return;
+
+            ctx.lineWidth = 5;
+            ctx.strokeStyle = currentColor;
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = currentColor;
+
+            ctx.lineTo(e.clientX, e.clientY);
+            ctx.stroke();
+            
+            // Akıcı çizim için noktaları birleştir
+            ctx.beginPath();
+            ctx.moveTo(e.clientX, e.clientY);
+        }
+
+        function setColor(color) {
+            currentColor = color;
+            pencil.style.color = color;
+        }
+
+        function clearCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+    </script>
+</body>
+</html>
